@@ -51,9 +51,10 @@ The library is `vkm_audio`, static and position-independent, for linking into a 
 consumer's own. Headers are included by the library's folder: `#include "vkm_audio/device.h"`;
 everything is in `Vkm::Audio`. miniaudio stays behind it: no header of the library includes miniaudio's.
 
-| Option              | Default | What                                                                   |
-|---------------------|---------|------------------------------------------------------------------------|
-| `VKM_AUDIO_ASSERTS` | `OFF`   | The library's `VKM_ASSERT`s run whatever the build type (`-UNDEBUG` on its own sources) |
+| Option                  | Default | What                                                                                    |
+|-------------------------|---------|-----------------------------------------------------------------------------------------|
+| `VKM_AUDIO_ASSERTS`     | `OFF`   | The library's `VKM_ASSERT`s run whatever the build type (`-UNDEBUG` on its own sources) |
+| `VKM_AUDIO_BUILD_TESTS` | `OFF`   | Builds `vkm_audio_tests`: each test a CTest of its own, labeled `vkm_audio`             |
 
 ## What it holds
 
@@ -66,6 +67,16 @@ everything is in `Vkm::Audio`. miniaudio stays behind it: no header of the libra
 | `reverb_tank.h` | `ReverbTank`, the room's reverberation                                                  |
 
 Each is under `src/vkm_audio/`.
+
+## Tests
+
+`tests/` holds the library's own suite, built with `VKM_AUDIO_BUILD_TESTS`: each test is
+`TEST("what works")` in `tests/<topic>.cpp`, a CTest named `vkm_audio: <what works>` and run in a
+process of its own, so `ctest -L vkm_audio` runs them in the tree of a consumer that calls
+`enable_testing()`, with `-C <config>` under a multi-config generator. They link the library alone and
+need no sound device: every mix is rendered offline into a buffer, and every file decoded is written
+by the test. Beside them, CTests of the library as a consumer builds it: its includes, its CMake
+(miniaudio's target included), and its debug flags.
 
 ## In vkmEngine
 

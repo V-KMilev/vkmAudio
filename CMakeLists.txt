@@ -95,3 +95,10 @@ endif()
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     VKM_LOG_SUFFIX="VKM-AUDIO"
 )
+
+# The suite (tests/), built when the consumer asks for it.
+option(VKM_AUDIO_BUILD_TESTS "Build the vkm_audio test suite" OFF)
+if(VKM_AUDIO_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

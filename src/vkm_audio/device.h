@@ -328,7 +328,8 @@ class Device {
         void setListenerActive(bool active);
 
         /**
-         * @brief Master gain applied to the whole mix.
+         * @brief Master gain applied to the whole mix; set with no mixer open, it is the one the next
+         *        opens at.
          *
          * @param volume Linear master gain; 0 and below, or non-finite, silence the mix.
          */

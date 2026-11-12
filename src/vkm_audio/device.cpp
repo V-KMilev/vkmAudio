@@ -536,6 +536,8 @@ bool Device::open() {
     }
 
     m_backend = std::move(backend);
+    // A gain set while there was no mixer is the one it opens at.
+    ma_engine_set_volume(&m_backend->engine, m_masterVolume);
 
     LOG_INFO(
         "Audio device open (%s, %u Hz, %u channel(s))",
@@ -564,6 +566,7 @@ bool Device::openOffline(uint32_t sampleRate, uint32_t channels) {
     }
 
     m_backend = std::move(backend);
+    ma_engine_set_volume(&m_backend->engine, m_masterVolume);
 
     LOG_INFO("Audio mixer open with no device (%u Hz, %u channel(s))", sampleRate, channels);
     return true;

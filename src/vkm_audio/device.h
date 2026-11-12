@@ -1,0 +1,380 @@
+#pragma once
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <memory>
+
+#include <glm/glm.hpp>
+
+#include "vkm_audio/clip.h"
+
+namespace Vkm::Audio {
+
+/**
+ * @brief Identifies one playing sound; 0 is the null sentinel, like a handle index.
+ */
+using VoiceId = uint32_t;
+
+inline constexpr size_t MAX_ACTIVE_VOICES = 128;  ///< The most voices the mixer will hold at once. Well above
+                                                  ///< most scenes' need. At it, play() makes room or refuses
+                                                  ///< (Device::play).
+
+inline constexpr size_t MAX_HELD_VOICES = 2 * MAX_ACTIVE_VOICES;
+    ///< The most voices the mixer's map holds, ramping out ones too: they leave only as the mixer runs, which
+    ///< a lost device does not.
+
+/**
+ * @brief How a positioned voice fades between its near and far distances.
+ */
+enum class Rolloff : uint8_t {
+    Linear,   ///< A straight line from full volume to silence.
+    Inverse,  ///< As 1/distance, steep near and gentle far, bent to reach silence at the far distance.
+};
+
+/**
+ * @brief Everything the mixer needs to know about one voice, pushed every frame.
+ *
+ * A snapshot rather than a reference into the caller's state, which the device never reads.
+ */
+struct VoiceParams {
+    float        volume      = 1.0f;   ///< Linear gain for this voice, multiplied into the master. Negative
+                                       ///< and non-finite values are heard as silence, since one infinite
+                                       ///< gain would take the whole mix non-finite.
+    float        pitch       = 1.0f;
+    bool         loop        = false;
+    bool         spatial     = true;
+    glm::vec3    position    = {0.0f, 0.0f, 0.0f};
+    float        minDistance = 1.0f;
+    float        maxDistance = 50.0f;
+    Rolloff      rolloff     = Rolloff::Linear;
+    int          priority    = 0;      ///< Rank when the mixer is full; see Device::play.
+    float        occlusion   = 0.0f;   ///< How much of the sound the world stops on its way to the ear, 0 to
+                                       ///< 1: quieter and duller as it rises (Acoustics::occludedGain,
+                                       ///< occludedCutoff).
+    bool         reverb      = false;  ///< Whether the voice rings in the room's reverb
+                                       ///< (Device::setRoomReverb).
+
+    /**
+     * @brief The gain as the mixer takes it.
+     *
+     * @return volume, or 0 where it is negative or not finite.
+     */
+    float heardVolume() const { return std::isfinite(volume) ? std::max(0.0f, volume) : 0.0f; }
+
+    /**
+     * @brief The near distance as the mixer takes it.
+     *
+     * It is multiplied into the per-sample gain, so bad values are read as zero.
+     *
+     * @return minDistance, or 0 where it is negative or not finite.
+     */
+    float heardMinDistance() const { return std::isfinite(minDistance) ? std::max(0.0f, minDistance) : 0.0f; }
+
+    /**
+     * @brief The occlusion as the mixer takes it.
+     *
+     * @return occlusion within 0..1, or 0 where it is not finite.
+     */
+    float heardOcclusion() const {
+        return std::isfinite(occlusion) ? std::clamp(occlusion, 0.0f, 1.0f) : 0.0f;
+    }
+
+    /**
+     * @brief The far distance as the mixer takes it.
+     *
+     * @return maxDistance, or 0 where it is negative or not finite.
+     */
+    float heardMaxDistance() const { return std::isfinite(maxDistance) ? std::max(0.0f, maxDistance) : 0.0f; }
+
+    /**
+     * @brief Whether the voice fades with distance and so has a range past which it is silent.
+     *
+     * @return true when the far distance opens past the near one.
+     */
+    bool hasFar() const { return heardMaxDistance() > heardMinDistance(); }
+};
+
+inline constexpr float INVERSE_ROLLOFF_MIN_DISTANCE = 0.01f;  ///< The nearest minDistance
+                                                              ///< Rolloff::Inverse takes: 1/distance
+                                                              ///< needs a distance to be full volume at.
+
+/**
+ * @brief Rolloff::Inverse's gain at @p distance: 1 to minDistance, then
+ *        (min/d - min/max) / (1 - min/max), which is 0 at maxDistance and past it.
+ *
+ * @param params   The voice's range; one with no far is never attenuated.
+ * @param distance From the listener, in meters.
+ * @return The gain, 0..1.
+ */
+inline float inverseRolloffGain(const VoiceParams& params, float distance) {
+    if (!params.hasFar()) return 1.0f;
+    const float lo = std::max(params.heardMinDistance(), INVERSE_ROLLOFF_MIN_DISTANCE);
+    const float hi = params.heardMaxDistance();
+    if (!(distance > lo)) return 1.0f;
+    if (distance >= hi) return 0.0f;
+    const float floor = lo / hi;
+    return (lo / distance - floor) / (1.0f - floor);
+}
+
+/**
+ * @brief The playback device and the mixer: the whole surface onto miniaudio.
+ *
+ * device.cpp and decode.cpp are the only files that include miniaudio. A voice shares
+ * ownership of its clip's samples, so a sound outlives its graph. Main-thread only, render()
+ * included, and unguarded; with no device open() returns false and every other call is a
+ * no-op. See docs/how-it-works.md, "Which thread may call it" and "The known races are
+ * miniaudio's".
+ */
+class Device {
+    public:
+        Device();
+        ~Device();
+
+        Device(const Device& other) = delete;
+        Device& operator=(const Device& other) = delete;
+
+        Device(Device && other) = delete;
+        Device& operator=(Device && other) = delete;
+
+    public:
+        /**
+         * @brief Open the default playback device and start its mixer thread.
+         *
+         * Excludes the null backend, which would succeed with no audio hardware.
+         *
+         * @return True when a device opened; false leaves the engine silent.
+         */
+        bool open();
+
+        /**
+         * @brief Open the mixer with no device, to be pumped by render().
+         *
+         * The same mix, output to the caller's buffer instead of hardware.
+         *
+         * @param sampleRate Mix rate; the caller's buffer is at this rate.
+         * @param channels Output channel count (2 to hear panning at all).
+         * @return True when the mixer initialized.
+         */
+        bool openOffline(uint32_t sampleRate, uint32_t channels);
+
+        /**
+         * @brief Stop every voice and shut the mixer down; idempotent.
+         */
+        void close();
+
+        /**
+         * @brief Pull mixed frames from an offline mixer into @p frames.
+         *
+         * Only meaningful after openOffline().
+         *
+         * @param frames Destination for interleaved 32-bit float samples; must
+         *        hold frameCount * the channel count openOffline() was given.
+         * @param frameCount Frames to mix.
+         * @return Frames actually written.
+         */
+        uint64_t render(float* frames, uint64_t frameCount);
+
+        /**
+         * @brief Start playing @p clip and return the voice driving it.
+         *
+         * At MAX_ACTIVE_VOICES a playing voice is stopped to make room: of the lowest priority
+         * below this one's, or of its own and quieter than it as heard; the quietest of those,
+         * then the oldest. A voice held by a pause is kept.
+         *
+         * @param clip Decoded clip to play; an empty one yields no voice.
+         * @param params Initial gain, pitch, looping, position and priority.
+         * @return The new voice, or 0 if the device is closed, a one-shot is asked for while
+         *         the device is lost, the sound could not be created, or no voice at the cap
+         *         gives way to it.
+         */
+        VoiceId play(const Clip& clip, const VoiceParams& params);
+
+        /**
+         * @brief Push a voice's parameters to the mixer; an unknown or finished voice is ignored.
+         *
+         * @param voice  Voice to update.
+         * @param params Gain, pitch, looping and position from now on.
+         */
+        void updateVoice(VoiceId voice, const VoiceParams& params);
+
+        /**
+         * @brief Whether @p voice is still there with audio left to play.
+         *
+         * False once a one-shot reaches its end; a looping voice stays true until
+         * stopped. A paused voice answers true; see isVoicePaused.
+         *
+         * @param voice Voice asked about.
+         * @return Whether it still has audio to play, held or not.
+         */
+        bool isVoiceActive(VoiceId voice) const;
+
+        /**
+         * @brief Hold @p voice at its cursor, silently, without ending it.
+         *
+         * Ramped like a stop, so the cursor moves a few milliseconds past the call. A voice
+         * pauseAllVoices() already holds changes hands, so a world resume leaves it held.
+         *
+         * @param voice Voice to hold; unknown ids are ignored.
+         */
+        void pauseVoice(VoiceId voice);
+
+        /**
+         * @brief Let @p voice play on from where it was held, ramped back in.
+         *
+         * Releases a pauseAllVoices() hold as readily as a pauseVoice() one.
+         *
+         * @param voice Voice to let go; one not held, or unknown, is ignored.
+         */
+        void resumeVoice(VoiceId voice);
+
+        /**
+         * @brief Whether @p voice is being held by a pause rather than playing.
+         *
+         * @param voice Voice asked about.
+         * @return Whether a pause is holding it; false for an unknown one.
+         */
+        bool isVoicePaused(VoiceId voice) const;
+
+        /**
+         * @brief How far into its clip @p voice has played, in seconds.
+         *
+         * The only copy of the cursor: the mixer moves it between frames, so a caller keeps no
+         * mirror, which would drop a scrub every frame or re-seek the mixer to a stale position.
+         *
+         * @param voice Voice to read; an unknown or finished one answers 0.
+         * @return Seconds from the clip's start, counting a seek that has been
+         *         asked for but not yet applied by the mixer.
+         */
+        float voiceCursor(VoiceId voice) const;
+
+        /**
+         * @brief Move @p voice's cursor to @p seconds into its clip.
+         *
+         * The mixer applies it before its next read. Clamped to the clip: miniaudio refuses an
+         * out-of-range seek yet still moves the sound's clock. Seeking to the end finishes it.
+         *
+         * @param voice Voice to move; unknown ids are ignored.
+         * @param seconds Position from the clip's start; negative and
+         *        non-finite values land at 0.
+         */
+        void seekVoice(VoiceId voice, float seconds);
+
+        /**
+         * @brief Ramp @p voice to silence and let it go.
+         *
+         * The few-millisecond ramp avoids a click; the id answers as released at once, and
+         * reapFinishedVoices() frees it after. A held voice stops being held.
+         *
+         * @param voice Voice to stop; unknown ids are ignored.
+         */
+        void stopVoice(VoiceId voice);
+
+        /**
+         * @brief Release every voice that has played to its end, or been ramped out by stopVoice().
+         *
+         * Makes play() safe for a caller that never keeps the id; ids are never reused. Also
+         * reopens a device that stopped by itself (reopenLostDevice), on the frame thread.
+         */
+        void reapFinishedVoices();
+
+        /**
+         * @brief Stop every voice, each ramped to silence as stopVoice() ramps one, and the room's
+         *        tail with them.
+         *
+         * A voice holds its own samples, so the clips may be freed at once; the reap frees the
+         * voices once their ramps end.
+         */
+        void stopAllVoices();
+
+        /**
+         * @brief Hold every voice that is sounding right now.
+         *
+         * For a tool's transport, not a game's pause, which leaves its music playing. A voice
+         * started afterwards plays.
+         */
+        void pauseAllVoices();
+
+        /**
+         * @brief Let every voice pauseAllVoices() is still holding play on.
+         *
+         * A voice held by pauseVoice(), or stopped while held, stays as it is.
+         */
+        void resumeAllVoices();
+
+        /**
+         * @brief Number of voices the mixer currently holds.
+         *
+         * @return The voices held now, including any ramping out or paused.
+         */
+        size_t voiceCount() const;
+
+        /**
+         * @brief Place the ear.
+         *
+         * @param position World position of the listener.
+         * @param forward World-space facing: the way the ear looks.
+         * @param up World-space up for the listener.
+         */
+        void setListener(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up);
+
+        /**
+         * @brief Whether anything is listening.
+         *
+         * Without one, spatial voices go silent and 2D ones play on.
+         *
+         * @param active Whether a listener exists this frame.
+         */
+        void setListenerActive(bool active);
+
+        /**
+         * @brief Master gain applied to the whole mix.
+         *
+         * @param volume Linear master gain; 0 and below, or non-finite, silence the mix.
+         */
+        void setMasterVolume(float volume);
+
+        /**
+         * @brief The reverberation of the space the ear is in, heard on voices that ask for it.
+         *
+         * One tank for every such voice: the ear is in one room at a time. Takes effect on the
+         * mixer's next block.
+         *
+         * @param decaySeconds How long its tail takes to fall by 60 dB.
+         * @param wet          Its level beside the dry sound; 0 turns it off.
+         */
+        void setRoomReverb(float decaySeconds, float wet);
+
+    public:
+        bool isOpen() const noexcept { return m_backend != nullptr; }
+
+        /**
+         * @brief The master gain the mix is running at, after setMasterVolume's sanitizing.
+         *
+         * @return Linear master gain; 1 until something sets it otherwise.
+         */
+        float masterVolume() const noexcept { return m_masterVolume; }
+
+    private:
+        // ma_engine, the voice table and each voice's sound; held by pointer so
+        // miniaudio's header stays out of this one.
+        struct Backend;
+
+    private:
+        /**
+         * @brief Open the default device again under the running mixer.
+         *
+         * Voices carry on where the old device left them; while none opens, another
+         * is tried every REOPEN_INTERVAL.
+         */
+        void reopenLostDevice();
+
+    private:
+        std::unique_ptr<Backend> m_backend;
+        float                    m_masterVolume = 1.0f;
+
+        bool                     m_voiceBudgetSpent = false;  ///< Latched while the voice budget is full, so
+                                                              ///< the warning is said once per saturation.
+};
+
+} // namespace Vkm::Audio

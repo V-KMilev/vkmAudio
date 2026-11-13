@@ -604,7 +604,18 @@ uint64_t Device::render(float* frames, uint64_t frameCount) {
 VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
     if (!m_backend || clip.sampleCount() == 0 || clip.channels == 0) return 0;
 
-    if (m_backend->voices.size() >= MAX_HELD_VOICES) return 0;
+    if (m_backend->voices.size() >= MAX_HELD_VOICES) {
+        if (!m_heldCapSpent) {
+            m_heldCapSpent = true;
+            LOG_WARNING(
+                "Audio mixer has %zu voices held, the most it keeps; a new sound is refused until the "
+                "reap frees some",
+                MAX_HELD_VOICES
+            );
+        }
+        return 0;
+    }
+    m_heldCapSpent = false;
 
     // Nothing mixes while the device is lost: a one-shot would wait to burst out with every other
     // one when a device opens again, long after its moment. A loop waits, and carries on then.
@@ -637,7 +648,10 @@ VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
         clip.frameCount(),
         &voice->buffer
     );
-    if (bufferResult != MA_SUCCESS) return 0;
+    if (bufferResult != MA_SUCCESS) {
+        LOG_WARNING("A sound's buffer could not be made: %s", ma_result_description(bufferResult));
+        return 0;
+    }
     // ma_audio_buffer_ref_init takes no rate, and a zero rate mixes as the device's:
     // a 22 kHz clip would play an octave high.
     voice->buffer.sampleRate = clip.sampleRate;
@@ -650,10 +664,12 @@ VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
         &voice->sound
     );
     if (soundResult != MA_SUCCESS) {
+        LOG_WARNING("A sound could not be made: %s", ma_result_description(soundResult));
         ma_audio_buffer_ref_uninit(&voice->buffer);
         return 0;
     }
     if (!m_backend->route(*voice)) {
+        LOG_WARNING("A sound's low-pass could not be made; it does not play");
         ma_sound_uninit(&voice->sound);
         ma_audio_buffer_ref_uninit(&voice->buffer);
         return 0;
@@ -668,7 +684,9 @@ VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
     Backend::Voice& stored = *(m_backend->voices[id] = std::move(voice));
 
     m_backend->apply(stored, params);
-    if (ma_sound_start(&stored.sound) != MA_SUCCESS) {
+    const ma_result startResult = ma_sound_start(&stored.sound);
+    if (startResult != MA_SUCCESS) {
+        LOG_WARNING("A sound could not be started: %s", ma_result_description(startResult));
         stopVoice(id);
         return 0;
     }

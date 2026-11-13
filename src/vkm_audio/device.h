@@ -184,9 +184,9 @@ class Device {
          *
          * @param clip Decoded clip to play; an empty one yields no voice.
          * @param params Initial gain, pitch, looping, position and priority.
-         * @return The new voice, or 0 if the device is closed, a one-shot is asked for while
-         *         the device is lost, the sound could not be created, or no voice at the cap
-         *         gives way to it.
+         * @return The new voice, or 0 if the device is closed, MAX_HELD_VOICES are held, a
+         *         one-shot is asked for while the device is lost, the sound could not be created,
+         *         or no voice at the cap gives way to it.
          */
         VoiceId play(const Clip& clip, const VoiceParams& params);
 
@@ -376,6 +376,7 @@ class Device {
 
         bool                     m_voiceBudgetSpent = false;  ///< Latched while the voice budget is full, so
                                                               ///< the warning is said once per saturation.
+        bool                     m_heldCapSpent     = false;  ///< The same, for MAX_HELD_VOICES.
 };
 
 } // namespace Vkm::Audio

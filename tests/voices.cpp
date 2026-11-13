@@ -299,7 +299,7 @@ TEST("at the voice cap a held voice is never taken, and with none to take the ne
     CHECK(countOf(Vkm::Test::logText(), "voice budget") == 2);
 }
 
-TEST("MAX_HELD_VOICES caps what the mixer holds, voices ramping out included") {
+TEST("MAX_HELD_VOICES caps what the mixer holds, voices ramping out included, and a refusal is said once a saturation") {
     Device device;
     openMix(device);
     const Clip clip = steady(2.0f);
@@ -309,6 +309,8 @@ TEST("MAX_HELD_VOICES caps what the mixer holds, voices ramping out included") {
     CHECK(device.voiceCount() == MAX_HELD_VOICES);
     // One that outranks a live voice would take its place under the active cap; the held cap refuses it.
     CHECK(device.play(clip, looping(5)) == 0u);
+    CHECK(device.play(clip, looping(5)) == 0u);
+    CHECK(countOf(Vkm::Test::logText(), "voices held") == 1);
 
     // The ramps end and the reap frees them, and it takes a place.
     render(device, 1024);

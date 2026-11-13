@@ -14,11 +14,9 @@ namespace {
 // reads, small enough that the last (partial) one wastes nothing worth naming.
 constexpr ma_uint64 DECODE_CHUNK_FRAMES = 16384;
 
-// The most the declared length is allowed to reserve: ten minutes at 48 kHz,
-// which is past any music bed a project is likely to hold. A longer clip still
-// loads whole - see decodeAll(), where this bounds an allocation hint and
-// nothing else.
-constexpr ma_uint64 MAX_RESERVE_FRAMES = 10 * 60 * 48000;
+// The most samples the declared length may reserve: ten minutes of stereo at 48 kHz. In samples, not
+// frames, as the channel count comes out of the same header.
+constexpr ma_uint64 MAX_RESERVE_SAMPLES = 10 * 60 * 48000 * 2;
 
 /**
  * @brief Pull every frame the decoder has into @p samples.
@@ -28,13 +26,15 @@ constexpr ma_uint64 MAX_RESERVE_FRAMES = 10 * 60 * 48000;
  * MA_NOT_IMPLEMENTED for the question entirely. The length is still asked for
  * first, as a reserve hint, so the common case allocates once.
  *
- * The hint is capped at MAX_RESERVE_FRAMES because it comes out of the file's
- * own header, which a corrupt file can make claim any length.
+ * The hint is capped at MAX_RESERVE_SAMPLES because it comes out of the file's
+ * own header, which a corrupt file can make claim any length; a longer clip still
+ * loads whole, the cap bounding the hint and nothing else.
  */
 bool decodeAll(ma_decoder& decoder, uint32_t channels, std::vector<int16_t>& samples) {
     ma_uint64 declaredFrames = 0;
     if (ma_decoder_get_length_in_pcm_frames(&decoder, &declaredFrames) == MA_SUCCESS) {
-        samples.reserve(static_cast<size_t>(std::min(declaredFrames, MAX_RESERVE_FRAMES) * channels));
+        const ma_uint64 frames = std::min<ma_uint64>(declaredFrames, MAX_RESERVE_SAMPLES / channels);
+        samples.reserve(static_cast<size_t>(frames * channels));
     }
 
     std::vector<int16_t> chunk(static_cast<size_t>(DECODE_CHUNK_FRAMES * channels));

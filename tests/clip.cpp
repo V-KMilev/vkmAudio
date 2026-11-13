@@ -244,6 +244,31 @@ TEST("a header declaring an absurd length reserves no more than its cap, and wha
 #endif
 }
 
+TEST("a header of many channels declaring an absurd length reserves no more than its cap") {
+#if defined(_WIN32)
+    Vkm::Test::skip("an address-space limit here needs setrlimit");
+#elif defined(VKM_TEST_SANITIZED)
+    Vkm::Test::skip("a sanitizer's shadow memory leaves no room for an address-space limit");
+#else
+    // Its STREAMINFO says 2^36 - 1 frames of eight channels, though its frames hold 600 of one.
+    std::vector<uint8_t> absurd = FLAC_FILE;
+    absurd[20]                  = static_cast<uint8_t>(absurd[20] | (7u << 1));
+    absurd[21]                  = static_cast<uint8_t>(absurd[21] | 0x0F);
+    for (int i = 22; i < 26; ++i) absurd[i] = 0xFF;
+    const fs::path path = Vkm::Test::scratch() / "absurd.flac";
+    writeBytes(path, absurd);
+
+    const auto ended = Vkm::Test::inChild([&] {
+        // Room for the cap's reserve, none for eight channels of it in frames.
+        const rlimit limit{384u << 20, 384u << 20};
+        setrlimit(RLIMIT_AS, &limit);
+        Clip clip;
+        decodeFile(path.string(), clip);
+    });
+    CHECK(ended == Vkm::Test::Ended::Returned);
+#endif
+}
+
 TEST("each listed extension is lowercase, starts with its dot, is listed once, and a file of its kind decodes") {
     const auto& listed = Vkm::Audio::DECODABLE_EXTENSIONS;
     for (size_t i = 0; i < listed.size(); ++i) {

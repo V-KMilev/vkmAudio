@@ -58,13 +58,13 @@ everything is in `Vkm::Audio`. miniaudio stays behind it: no header of the libra
 
 ## What it holds
 
-| Header          | What                                                                                   |
-|-----------------|----------------------------------------------------------------------------------------|
-| `device.h`      | `Device`, `VoiceParams`, `VoiceId`, `Rolloff`, the voice limits, `inverseRolloffGain`   |
-| `clip.h`        | `Clip`, `ClipSamples`, `findClipFault`                                                  |
-| `decode.h`      | `decodeFile`, `DECODABLE_EXTENSIONS`                                                    |
-| `acoustics.h`   | `Acoustics::`: occlusion and the room's estimate, over any ray cast                     |
-| `reverb_tank.h` | `ReverbTank`, the room's reverberation                                                  |
+| Header          | What                                                                                  |
+|-----------------|---------------------------------------------------------------------------------------|
+| `device.h`      | `Device`, `VoiceParams`, `VoiceId`, `Rolloff`, the voice limits, `inverseRolloffGain` |
+| `clip.h`        | `Clip`, `ClipSamples`, `findClipFault`                                                |
+| `decode.h`      | `decodeFile`, what it answers (`Decoded`), `DECODABLE_EXTENSIONS`                     |
+| `acoustics.h`   | `Acoustics::`: occlusion and the room's estimate, over any ray cast                   |
+| `reverb_tank.h` | `ReverbTank`, the room's reverberation                                                |
 
 Each is under `src/vkm_audio/`.
 
@@ -78,7 +78,17 @@ need no sound device: every mix is rendered offline into a buffer, and every fil
 by the test. Beside them, CTests of the library as a consumer builds it: its includes, its CMake
 (miniaudio's target included), and its debug flags.
 
+## Version
+
+0.0.0, set in `CMakeLists.txt`'s `project()`: nothing is released yet. A release is tagged
+`vX.Y.Z` on `master` and listed in [CHANGELOG.md](CHANGELOG.md); work lands on `vkm/dev` first.
+
 ## In vkmEngine
 
 The engine pins it at `modules/vkmAudio` and links it whole into `libvkm_core`. A change is a commit
 here, then an engine commit that moves the pin.
+
+## License
+
+vkmAudio is source-available under the [vkmEngine License](LICENSE), the engine's own, which holds
+for each vkm library used alone. [CONTRIBUTING.md](CONTRIBUTING.md) says how a change is shared.

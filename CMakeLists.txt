@@ -38,8 +38,8 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/modules)
 # somewhere else.
 file(GLOB_RECURSE VKM_AUDIO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
-# Static and position-independent: a consumer links it whole into a shared library of its own,
-# as the engine does into libvkm_core, so it ships no binary of its own.
+# Static and position-independent: a consumer links it whole into a shared library of its own, so
+# it ships no binary of its own.
 add_library(${PROJECT_NAME} STATIC ${VKM_AUDIO_SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -54,14 +54,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     vkm_log
 )
 
-# Private: only device.cpp and decode.cpp include miniaudio's header, and its definitions reach
-# them alone. A consumer links the archive and nothing else of it.
+# Private: only device.cpp and decode.cpp include miniaudio's header, and its definitions reach the
+# library's own sources alone. A consumer links the archive and nothing else of it.
 target_link_libraries(${PROJECT_NAME} PRIVATE
     miniaudio
 )
 
-# The engine's warning set, so a file reads the same on either side of the boundary. Clang reads the
-# doc blocks: a @param naming no parameter is an error.
+# Its warning set. Clang reads the doc blocks: a @param naming no parameter is an error.
 set(_vkm_audio_warnings
     -Wall
     -Wextra
@@ -78,9 +77,9 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Werror=documentation>
 )
 
-# No fused multiply-add unless the source writes one, as the engine this code came from compiles
-# it, so a gain or a ray rounds as it did there. Private: a mix is heard, not replayed, so a consumer
-# need not round the headers' inline math alike.
+# No fused multiply-add unless the source writes one, so a gain or a ray rounds as written, whichever
+# compiler builds it. Private: a mix is heard, not replayed, so a consumer need not round the headers'
+# inline math alike.
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang>:-ffp-contract=off>
 )

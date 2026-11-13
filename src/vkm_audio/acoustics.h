@@ -16,14 +16,14 @@ inline constexpr int ROOM_BOUNCES = 2;  ///< Bounces a room ray follows after it
 inline constexpr float ROOM_REACH = 60.0f;  ///< How far a room ray looks before it calls itself out in the
                                             ///< open, in meters.
 
-inline constexpr size_t ROOM_WINDOW          = 64;  ///< The room rays the estimate is taken over, a few a
-                                                    ///< listen, so the room is re-measured every ROOM_WINDOW
-                                                    ///< / ROOM_RAYS_PER_LISTEN listens.
+inline constexpr size_t ROOM_WINDOW          = 64;  ///< The room rays the estimate is taken over: traced
+                                                    ///< ROOM_RAYS_PER_LISTEN a listen, it renews every
+                                                    ///< ROOM_WINDOW / ROOM_RAYS_PER_LISTEN listens.
 inline constexpr size_t ROOM_RAYS_PER_LISTEN = 4;
 
-inline constexpr float LISTENS_A_SECOND = 60.0f;  ///< How often the ear listens, a second: a frame between
-                                                  ///< listens casts no ray. The room and what stands before a
-                                                  ///< sound change no faster for a faster frame.
+inline constexpr float LISTENS_A_SECOND = 60.0f;  ///< How often a caller listens, a second, which the window
+                                                  ///< and the easing are tuned for: the room and what stands
+                                                  ///< before a sound change no faster for a faster frame.
 
 inline constexpr float SOURCE_CLEARANCE = 0.1f;  ///< How far short of its target each occlusion ray stops, in
                                                  ///< meters, so a surface the source is pressed against does
@@ -141,7 +141,7 @@ Room estimateRoom(const RoomRay* rays, size_t count);
  * and is quieter, and open ground has none.
  *
  * @param room     What the rays measured.
- * @param strength The scene's scale on the level; 0 turns reverb off.
+ * @param strength A scale on the level; 0 turns reverb off.
  * @return Decay and level.
  */
 Reverb reverbFor(const Room& room, float strength);

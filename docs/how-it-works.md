@@ -5,7 +5,8 @@ in the headers; this page is what they cannot say.
 
 ## The device
 
-`Device` is the whole surface onto miniaudio: only `device.cpp` and `decode.cpp` include its header.
+`Device` is the mixer's surface onto miniaudio, and `decodeFile` the decoder's: only `device.cpp` and
+`decode.cpp` include its header.
 A voice reads its clip's samples in place and shares their ownership (`ClipSamples`), so a clip its
 owner frees plays on to its end. A voice runs through its own low-pass to the output, or through the
 room's reverb node when it rings in the room; the reverb's decay and level cross to the mixer thread

@@ -12,7 +12,7 @@
 namespace Vkm::Audio {
 
 /**
- * @brief Identifies one playing sound; 0 is the null sentinel, like a handle index.
+ * @brief Identifies one playing sound; 0 is no voice, and an id is never reused.
  */
 using VoiceId = uint32_t;
 
@@ -118,10 +118,10 @@ inline float inverseRolloffGain(const VoiceParams& params, float distance) {
 }
 
 /**
- * @brief The playback device and the mixer: the whole surface onto miniaudio.
+ * @brief The playback device and the mixer: the mixer's surface onto miniaudio (decodeFile is
+ *        the decoder's).
  *
- * device.cpp and decode.cpp are the only files that include miniaudio. A voice shares
- * ownership of its clip's samples, so a sound outlives its graph. Main-thread only, render()
+ * A voice shares ownership of its clip's samples, so a sound outlives its graph. Main-thread only, render()
  * included, and unguarded; with no device open() returns false and every other call is a
  * no-op. See docs/how-it-works.md, "Which thread may call it" and "The known races are
  * miniaudio's".
@@ -143,7 +143,7 @@ class Device {
          *
          * Excludes the null backend, which would succeed with no audio hardware.
          *
-         * @return True when a device opened; false leaves the engine silent.
+         * @return True when a device opened; false: no device, and every other call does nothing.
          */
         bool open();
 
@@ -213,7 +213,7 @@ class Device {
          * @brief Hold @p voice at its cursor, silently, without ending it.
          *
          * Ramped like a stop, so the cursor moves a few milliseconds past the call. A voice
-         * pauseAllVoices() already holds changes hands, so a world resume leaves it held.
+         * pauseAllVoices() already holds changes hands, so resumeAllVoices() leaves it held.
          *
          * @param voice Voice to hold; unknown ids are ignored.
          */
@@ -274,7 +274,7 @@ class Device {
          * @brief Release every voice that has played to its end, or been ramped out by stopVoice().
          *
          * Makes play() safe for a caller that never keeps the id; ids are never reused. Also
-         * reopens a device that stopped by itself (reopenLostDevice), on the frame thread.
+         * reopens a device that stopped by itself (reopenLostDevice), on the main thread.
          */
         void reapFinishedVoices();
 
@@ -290,8 +290,7 @@ class Device {
         /**
          * @brief Hold every voice that is sounding right now.
          *
-         * For a tool's transport, not a game's pause, which leaves its music playing. A voice
-         * started afterwards plays.
+         * A voice started afterwards plays.
          */
         void pauseAllVoices();
 

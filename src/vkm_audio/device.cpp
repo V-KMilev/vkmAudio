@@ -102,7 +102,7 @@ constexpr std::chrono::seconds REOPEN_INTERVAL{2};  ///< Wait between attempts t
  * @param message The line, newline-terminated as miniaudio writes it.
  */
 void forwardBackendLog(void* userData, ma_uint32 level, const char* message) {
-    // Below warnings, miniaudio dumps ninety lines of device capabilities per launch.
+    // Below warnings, miniaudio lists the device's capabilities line after line on every open.
     if (message == nullptr || (level != MA_LOG_LEVEL_WARNING && level != MA_LOG_LEVEL_ERROR)) return;
 
     char text[512];
@@ -124,7 +124,7 @@ void forwardBackendLog(void* userData, ma_uint32 level, const char* message) {
 /**
  * @brief The device's data callback: pull the next block of the mix.
  *
- * @param device     The device asking; its user data is the engine.
+ * @param device     The device asking; its user data is the ma_engine.
  * @param out        Where the device wants the frames.
  * @param in         Unused; a playback device has no input.
  * @param frameCount How many frames it wants.
@@ -175,12 +175,12 @@ struct Device::Backend {
     bool      hasLog = false;
     ma_engine engine;
 
-    // Device-backed mixers only; outlives the engine, which does not free a context it
+    // Device-backed mixers only; outlives the ma_engine, which does not free a context it
     // did not create.
     std::unique_ptr<ma_context> context;
 
-    // Owned here, not by the engine, so a lost one is rebuilt under a mixer that keeps
-    // its voices; on the heap, because the engine holds a pointer to it.
+    // Owned here, not by the ma_engine, so a lost one is rebuilt under a mixer that keeps
+    // its voices; on the heap, because the ma_engine holds a pointer to it.
     std::unique_ptr<ma_device> device;
 
     // When a lost device may next be reopened, and whether the last try failed, so a
@@ -434,7 +434,7 @@ struct Device::Backend {
      * @return Whether ma_engine_init succeeded.
      */
     bool initEngine(ma_engine_config& config) {
-        // One ear (see findActiveListener); an unused one still costs a spatializer pass.
+        // One ear, listener 0; an unused one still costs a spatializer pass.
         config.listenerCount = 1;
         if (ma_engine_init(&config, &engine) != MA_SUCCESS) return false;
         initReverb();
@@ -442,7 +442,7 @@ struct Device::Backend {
     }
 
     /**
-     * @brief Open the context's default playback device, pulling from the engine.
+     * @brief Open the context's default playback device, pulling from the ma_engine.
      *
      * WASAPI's automatic rerouting is off: it restarts the device from miniaudio's
      * thread and would race our rebuild; reopenLostDevice replaces a lost one instead.
@@ -468,7 +468,7 @@ struct Device::Backend {
     /**
      * @brief Bring up the mixer on the context's default playback device.
      *
-     * @return Whether the mixer came up; the engine starts the device.
+     * @return Whether the mixer came up; the ma_engine starts the device.
      */
     bool initDeviceEngine() {
         if (!initDevice(0, 0)) return false;
@@ -524,14 +524,14 @@ bool Device::open() {
     );
     if (contextResult != MA_SUCCESS) {
         backend->uninitLog();
-        LOG_WARNING("No audio backend available on this host - the engine runs silently");
+        LOG_WARNING("No audio backend available on this host - nothing will play");
         return false;
     }
 
     if (!backend->initDeviceEngine()) {
         ma_context_uninit(backend->context.get());
         backend->uninitLog();
-        LOG_WARNING("No audio device could be opened - the engine runs silently");
+        LOG_WARNING("No audio device could be opened - nothing will play");
         return false;
     }
 
@@ -580,7 +580,7 @@ void Device::close() {
     m_backend->voices.clear();
     // After the voices that feed it, before the graph it lives in.
     m_backend->uninitReverb();
-    // The engine stops a borrowed device before taking its graph down; the device goes after.
+    // The ma_engine stops a borrowed device before taking its graph down; the device goes after.
     ma_engine_uninit(&m_backend->engine);
     if (m_backend->device) ma_device_uninit(m_backend->device.get());
     if (m_backend->context) ma_context_uninit(m_backend->context.get());
@@ -588,7 +588,7 @@ void Device::close() {
     m_backend->uninitLog();
 
     m_backend.reset();
-    LOG_INFO("Audio device closed");
+    LOG_INFO("Audio mixer closed");
 }
 
 uint64_t Device::render(float* frames, uint64_t frameCount) {
@@ -628,7 +628,7 @@ VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
             m_voiceBudgetSpent = true;
             LOG_WARNING(
                 "Audio voice budget of %zu reached; the least important, quietest sounds make room "
-                "from now on. A game firing one PlaySoundEvent a frame is the usual cause.",
+                "from now on. A caller starting a sound every frame is the usual cause.",
                 MAX_ACTIVE_VOICES
             );
         }

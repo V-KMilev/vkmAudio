@@ -13,6 +13,9 @@ if(NOT TARGET miniaudio)
     message("\t- miniaudio | Path: ${MODULES_DIR}/miniaudio (https://github.com/mackron/miniaudio)")
 
     add_library(miniaudio STATIC ${MODULES_DIR}/miniaudio/miniaudio.c)
+    # GCC's -O3 reads two writes in the mp3 decoder's scale factors (ma_dr_mp3_L3_decode_scalefactors)
+    # as past their region; the source stays as its authors ship it.
+    target_compile_options(miniaudio PRIVATE $<$<C_COMPILER_ID:GNU>:-Wno-stringop-overflow>)
     # Split for export: miniaudio travels in a consumer's link interface when vkm_audio is linked
     # into a library it installs, so its include path has to resolve against an install too.
     target_include_directories(miniaudio SYSTEM PUBLIC

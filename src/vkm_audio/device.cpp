@@ -757,9 +757,10 @@ void Device::seekVoice(VoiceId voice, float seconds) {
     Backend::Voice* v = m_backend->find(voice);
     if (v == nullptr) return;
 
-    const double at = std::isfinite(seconds) ? std::max(0.0, static_cast<double>(seconds)) : 0.0;
-    const ma_uint64 frame = static_cast<ma_uint64>(at * static_cast<double>(v->buffer.sampleRate));
-    ma_sound_seek_to_pcm_frame(&v->sound, std::min(frame, v->buffer.sizeInFrames));
+    // Clamped before the cast: a time past what a ma_uint64 counts converts to nothing defined.
+    const double end   = static_cast<double>(v->buffer.sizeInFrames);
+    const double frame = std::isfinite(seconds) ? static_cast<double>(seconds) * v->buffer.sampleRate : 0.0;
+    ma_sound_seek_to_pcm_frame(&v->sound, static_cast<ma_uint64>(std::clamp(frame, 0.0, end)));
 }
 
 void Device::stopVoice(VoiceId voice) {

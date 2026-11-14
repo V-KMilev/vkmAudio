@@ -243,6 +243,14 @@ TEST("a seek past the end is held to the clip and finishes it, a negative or NaN
     CHECK(!device.isVoiceActive(voice));
     device.reapFinishedVoices();
     CHECK(device.voiceCount() == 0u);
+
+    // Further than a frame count holds.
+    const VoiceId beyond = device.play(clip, flat());
+    REQUIRE(beyond != 0u);
+    device.seekVoice(beyond, 1e15f);
+    CHECK(device.voiceCursor(beyond) <= clip.duration());
+    render(device, 1024);
+    CHECK(!device.isVoiceActive(beyond));
 }
 
 TEST("a stop ramps out over a few milliseconds without a jump, reads as gone at once, and the reap frees it after") {

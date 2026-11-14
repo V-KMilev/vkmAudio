@@ -41,7 +41,8 @@ struct VoiceParams {
     float     volume      = 1.0f;   ///< Linear gain for this voice, multiplied into the master. Negative
                                     ///< and non-finite values are heard as silence, since one infinite
                                     ///< gain would take the whole mix non-finite.
-    float     pitch       = 1.0f;
+    float     pitch       = 1.0f;   ///< Playback speed, 2 an octave up: held to 0.01..16, and a NaN
+                                    ///< heard as 0.01.
     bool      loop        = false;
     bool      spatial     = true;
     glm::vec3 position    = {0.0f, 0.0f, 0.0f};

@@ -32,6 +32,11 @@ constexpr float OPEN_RATES = 1000.0f;  ///< An open low-pass's cutoff, in multip
                                        ///< above it that the pole keeps nothing of the last sample, and the
                                        ///< sound passes exactly.
 
+constexpr float MIN_PITCH = 0.01f;  ///< The slowest a voice plays: miniaudio ignores a pitch of 0 or below.
+constexpr float MAX_PITCH = 16.0f;  ///< The fastest, four octaves up: the mixer reads pitch times the frames
+                                    ///< it makes, so a wild pitch stalls the device's callback, and past
+                                    ///< about 4e6 overflows miniaudio's resampler.
+
 /**
  * @brief The room's reverb as a node in the mixer's graph: the voices that ring in the room run
  *        through it, and it passes them on with the room's tail added.
@@ -338,9 +343,9 @@ struct Device::Backend {
         voice.params = params;
         applyGain(voice);
 
-        // Floored: miniaudio ignores pitch <= 0, and a NaN passes that check and is stored.
-        // A max, not std::clamp, which would hand the NaN on.
-        ma_sound_set_pitch(&voice.sound, std::max(0.01f, params.pitch));
+        // A NaN passes miniaudio's `pitch <= 0` check and is stored: max then min land it on the
+        // floor, where std::clamp would hand it on.
+        ma_sound_set_pitch(&voice.sound, std::min(MAX_PITCH, std::max(MIN_PITCH, params.pitch)));
         ma_sound_set_looping(&voice.sound, params.loop ? MA_TRUE : MA_FALSE);
 
         // Retuned only as it drifts: a retune per frame for a sound that barely moved is waste.

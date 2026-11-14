@@ -234,6 +234,21 @@ TEST("a pitch of zero or NaN does not stop a voice's clock") {
     }
 }
 
+TEST("a pitch past 16, however wild, plays at 16") {
+    for (const float pitch : {16.0f, 1e6f, 1e9f, INFINITE}) {
+        Device device;
+        openMix(device);
+        VoiceParams params = flat();
+        params.pitch = pitch;
+        const auto voice = device.play(steady(2.0f), params);
+        REQUIRE(voice != 0u);
+        // A sixteenth of a second at sixteen times the speed: a second into the clip.
+        render(device, RATE / 16);
+        CHECK_NEAR(device.voiceCursor(voice), 1.0f, 0.02f);
+        CHECK(device.isVoiceActive(voice));
+    }
+}
+
 TEST("an occluded voice is quieter by occludedGain and duller: what is above its cutoff falls further") {
     namespace Acoustics = Vkm::Audio::Acoustics;
     for (const float occlusion : {0.5f, 1.0f}) {

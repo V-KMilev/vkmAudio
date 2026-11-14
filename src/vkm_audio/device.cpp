@@ -63,17 +63,14 @@ void processReverb(ma_node* node, const float** in, ma_uint32* inFrames, float**
     for (size_t i = 0; i < samples; ++i) out[0][i] += dry[i];
 }
 
-// Run while nothing feeds it, so a tail rings on after its sound stops.
 const ma_node_vtable REVERB_VTABLE = {
     processReverb,
     nullptr,
     1,
     1,
     MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT,
-};
+};  ///< Run while nothing feeds it, so a tail rings on after its sound stops.
 
-// The backends of Windows and Linux, in miniaudio's priority order. Stated because ma_engine's
-// default list ends in the null backend, which succeeds with no hardware.
 constexpr std::array<ma_backend, 7> PLAYBACK_BACKENDS = {
     ma_backend_wasapi,
     ma_backend_dsound,
@@ -82,11 +79,11 @@ constexpr std::array<ma_backend, 7> PLAYBACK_BACKENDS = {
     ma_backend_alsa,
     ma_backend_jack,
     ma_backend_oss,
-};
+};  ///< The backends of Windows and Linux, in miniaudio's priority order. Stated because ma_engine's default
+    ///< list ends in the null backend, which succeeds with no hardware.
 
-// How long a stopped voice takes to reach silence: short enough to read as a stop, long enough not
-// to click.
-constexpr uint32_t STOP_FADE_MS = 5;
+constexpr uint32_t STOP_FADE_MS = 5;  ///< How long a stopped voice takes to reach silence: short enough to
+                                      ///< read as a stop, long enough not to click.
 
 constexpr std::chrono::seconds REOPEN_INTERVAL{2};  ///< Wait between attempts to reopen a lost device:
                                                     ///< opening blocks, and a host with no output would
@@ -130,7 +127,6 @@ void forwardBackendLog(void* userData, ma_uint32 level, const char* message) {
  * @param frameCount How many frames it wants.
  */
 void pullMix(ma_device* device, void* out, const void* in, ma_uint32 frameCount) {
-    (void)in;
     ma_engine_read_pcm_frames(static_cast<ma_engine*>(device->pUserData), out, frameCount, nullptr);
 }
 
@@ -156,46 +152,42 @@ struct Device::Backend {
 
         ma_sound            sound;
         ma_audio_buffer_ref buffer;
-        // Keeps the PCM the buffer points at alive for as long as this voice is.
-        ClipSamples samples;
-        // Ramping to silence, awaiting the reap; hidden from find(), so it reads as gone.
-        bool retiring = false;
-        // Held at its cursor, and by whom. The mixer cannot say: a held sound and one
-        // that ran out are both stopped nodes, and only the latter is reaped.
-        Hold hold = Hold::None;
-        // As last applied: an inverse rolloff's gain is ours, redone as the ear moves.
-        VoiceParams params;
-        // Occlusion's low-pass, which runs to the output or through the room's reverb.
-        ma_lpf_node lowpass;
-        bool        ringing = false;  ///< Running through the reverb node, not straight out.
-        float       cutoff  = 0.0f;   ///< The low-pass's, as last tuned.
+        ClipSamples         samples;                ///< Keeps the PCM the buffer points at alive as long as
+                                                    ///< this voice is.
+        bool                retiring = false;       ///< Ramping to silence, awaiting the reap; hidden from
+                                                    ///< find(), so it reads as gone.
+        Hold                hold     = Hold::None;  ///< Held at its cursor, and by whom. The mixer cannot
+                                                    ///< say: a held sound and one that ran out are both
+                                                    ///< stopped nodes, and only the latter is reaped.
+        VoiceParams         params;                 ///< As last applied: an inverse rolloff's gain is ours,
+                                                    ///< redone as the ear moves.
+        ma_lpf_node         lowpass;                ///< Occlusion's, which runs to the output or through the
+                                                    ///< room's reverb.
+        bool                ringing  = false;       ///< Running through the reverb node, not straight out.
+        float               cutoff   = 0.0f;        ///< The low-pass's, as last tuned.
     };
 
     ma_log    log;
     bool      hasLog = false;
     ma_engine engine;
 
-    // Device-backed mixers only; outlives the ma_engine, which does not free a context it
-    // did not create.
-    std::unique_ptr<ma_context> context;
+    std::unique_ptr<ma_context> context;  ///< Device-backed mixers only; outlives the ma_engine, which does
+                                          ///< not free a context it did not create.
+    std::unique_ptr<ma_device>  device;   ///< Owned here, not by the ma_engine, so a lost one is rebuilt
+                                          ///< under a mixer that keeps its voices; on the heap, as the
+                                          ///< ma_engine holds a pointer to it.
 
-    // Owned here, not by the ma_engine, so a lost one is rebuilt under a mixer that keeps
-    // its voices; on the heap, because the ma_engine holds a pointer to it.
-    std::unique_ptr<ma_device> device;
-
-    // When a lost device may next be reopened, and whether the last try failed, so a
-    // host with no output says so once.
-    std::chrono::steady_clock::time_point reopenAt{};
-    bool reopenFailed = false;
+    std::chrono::steady_clock::time_point reopenAt{};            ///< When a lost device may next be reopened.
+    bool                                  reopenFailed = false;  ///< Whether the last try failed, so a host
+                                                                 ///< with no output says so once.
 
     std::unordered_map<VoiceId, std::unique_ptr<Voice>> voices;
 
-    // The room's reverb, which every voice that asks runs through; null when its node could not be
-    // made, which costs only the reverb.
-    std::unique_ptr<ReverbNode> reverb;
+    std::unique_ptr<ReverbNode> reverb;  ///< The room's, which every voice that asks runs through; null when
+                                         ///< its node could not be made, which costs only the reverb.
 
-    // Never reused, so a stale id cannot name a later voice; nothing reaches the wrap.
-    VoiceId nextVoice = 1;
+    VoiceId nextVoice = 1;  ///< Never reused, so a stale id cannot name a later voice; nothing reaches the
+                            ///< wrap.
 
     Voice* find(VoiceId id) const {
         auto it = voices.find(id);

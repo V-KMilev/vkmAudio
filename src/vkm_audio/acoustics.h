@@ -58,19 +58,21 @@ struct Strike {
  *        the way it went.
  */
 struct RoomRay {
-    int   strikes = 0;                               ///< Legs that struck a surface, of 1 + ROOM_BOUNCES.
-    float length  = 0.0f;                            ///< The struck legs' summed length, in meters.
-    std::array<glm::vec3, 2 + ROOM_BOUNCES> path{};  ///< Where it left the ear, then each strike: the first 1
-                                                     ///< + strikes.
-    glm::vec3 escape{0.0f};                          ///< The way its last leg went out into the open,
-                                                     ///< striking nothing; zero when every leg struck.
+    int   strikes = 0;     ///< Legs that struck a surface, of 1 + ROOM_BOUNCES.
+    float length  = 0.0f;  ///< The struck legs' summed length, in meters.
+
+    std::array<glm::vec3, 2 + ROOM_BOUNCES> path{};  ///< Where it left the ear, then each strike: the first
+                                                     ///< 1 + strikes.
+
+    glm::vec3 escape{0.0f};  ///< The way its last leg went out into the open, striking nothing; zero when
+                             ///< every leg struck.
 };
 
 /**
  * @brief What the rays say about the space the ear is in.
  */
 struct Room {
-    float enclosure = 0.0f;     ///< 0 out in the open, 1 shut in on every side: the share of the rays' legs
+    float enclosure    = 0.0f;  ///< 0 out in the open, 1 shut in on every side: the share of the rays' legs
                                 ///< that struck.
     float meanFreePath = 0.0f;  ///< The struck legs' mean length, in meters: how big the space is. 0 when
                                 ///< nothing struck.

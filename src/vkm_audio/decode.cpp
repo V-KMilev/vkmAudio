@@ -10,13 +10,14 @@ namespace Vkm::Audio {
 
 namespace {
 
-// Frames pulled per read. Big enough that a three-minute track is a few hundred
-// reads, small enough that the last (partial) one wastes nothing worth naming.
-constexpr ma_uint64 DECODE_CHUNK_FRAMES = 16384;
+constexpr ma_uint64 DECODE_CHUNK_FRAMES = 16384;  ///< Frames pulled per read. Big enough that a three-minute
+                                                  ///< track is a few hundred reads, small enough that the
+                                                  ///< last (partial) one wastes nothing worth naming.
 
-// The most samples the declared length may reserve: ten minutes of stereo at 48 kHz. In samples, not
-// frames, as the channel count comes out of the same header.
-constexpr ma_uint64 MAX_RESERVE_SAMPLES = 10 * 60 * 48000 * 2;
+constexpr ma_uint64 MAX_RESERVE_SAMPLES = 10 * 60 * 48000 * 2;  ///< The most samples the declared length may
+                                                                ///< reserve: ten minutes of stereo at 48 kHz.
+                                                                ///< In samples, not frames, as the channel
+                                                                ///< count comes out of the same header.
 
 /**
  * @brief Pull every frame the decoder has into @p samples.

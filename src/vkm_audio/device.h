@@ -38,22 +38,22 @@ enum class Rolloff : uint8_t {
  * A snapshot rather than a reference into the caller's state, which the device never reads.
  */
 struct VoiceParams {
-    float        volume      = 1.0f;   ///< Linear gain for this voice, multiplied into the master. Negative
-                                       ///< and non-finite values are heard as silence, since one infinite
-                                       ///< gain would take the whole mix non-finite.
-    float        pitch       = 1.0f;
-    bool         loop        = false;
-    bool         spatial     = true;
-    glm::vec3    position    = {0.0f, 0.0f, 0.0f};
-    float        minDistance = 1.0f;
-    float        maxDistance = 50.0f;
-    Rolloff      rolloff     = Rolloff::Linear;
-    int          priority    = 0;      ///< Rank when the mixer is full; see Device::play.
-    float        occlusion   = 0.0f;   ///< How much of the sound the world stops on its way to the ear, 0 to
-                                       ///< 1: quieter and duller as it rises (Acoustics::occludedGain,
-                                       ///< occludedCutoff).
-    bool         reverb      = false;  ///< Whether the voice rings in the room's reverb
-                                       ///< (Device::setRoomReverb).
+    float     volume      = 1.0f;   ///< Linear gain for this voice, multiplied into the master. Negative
+                                    ///< and non-finite values are heard as silence, since one infinite
+                                    ///< gain would take the whole mix non-finite.
+    float     pitch       = 1.0f;
+    bool      loop        = false;
+    bool      spatial     = true;
+    glm::vec3 position    = {0.0f, 0.0f, 0.0f};
+    float     minDistance = 1.0f;
+    float     maxDistance = 50.0f;
+    Rolloff   rolloff     = Rolloff::Linear;
+    int       priority    = 0;      ///< Rank when the mixer is full; see Device::play.
+    float     occlusion   = 0.0f;   ///< How much of the sound the world stops on its way to the ear, 0 to
+                                    ///< 1: quieter and duller as it rises (Acoustics::occludedGain,
+                                    ///< occludedCutoff).
+    bool      reverb      = false;  ///< Whether the voice rings in the room's reverb
+                                    ///< (Device::setRoomReverb).
 
     /**
      * @brief The gain as the mixer takes it.

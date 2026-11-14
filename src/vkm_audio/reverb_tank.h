@@ -79,8 +79,8 @@ class ReverbTank {
         void retune();
 
     private:
-        uint32_t           m_rate     = 48000;
-        uint32_t           m_channels = 0;
+        uint32_t           m_rate       = 48000;
+        uint32_t           m_channels   = 0;
         std::vector<Line>  m_combs;      ///< Each channel's combs in turn.
         std::vector<Line>  m_allpasses;  ///< Each channel's all-passes in turn.
         std::atomic<float> m_decay{1.0f};

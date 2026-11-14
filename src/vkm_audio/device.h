@@ -223,7 +223,8 @@ class Device {
         /**
          * @brief Let @p voice play on from where it was held, ramped back in.
          *
-         * Releases a pauseAllVoices() hold as readily as a pauseVoice() one.
+         * Releases a pauseAllVoices() hold as readily as a pauseVoice() one. A one-shot that ran
+         * out during the pause's ramp stays ended.
          *
          * @param voice Voice to let go; one not held, or unknown, is ignored.
          */
@@ -296,7 +297,7 @@ class Device {
         void pauseAllVoices();
 
         /**
-         * @brief Let every voice pauseAllVoices() is still holding play on.
+         * @brief Let every voice pauseAllVoices() is still holding play on, each as resumeVoice() would.
          *
          * A voice held by pauseVoice(), or stopped while held, stays as it is.
          */

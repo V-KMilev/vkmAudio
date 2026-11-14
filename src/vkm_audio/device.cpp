@@ -403,15 +403,20 @@ struct Device::Backend {
      * @brief Undo pauseSound and let @p voice play on from where it was held.
      *
      * Clears both things the ramped pause leaves silencing it: a stop time and a fader on its
-     * way to zero, which ramps back up from wherever it got to.
+     * way to zero, which ramps back up from wherever it got to. A voice that played to its end
+     * meanwhile stays ended.
      *
      * @param voice Voice to let go.
      */
     static void resumeSound(Voice& voice) {
+        voice.hold = Voice::Hold::None;
+        // ma_sound_start rewinds a sound at its end: a one-shot that ran out inside the pause's
+        // ramp would play again from the start.
+        if (ma_sound_at_end(&voice.sound) == MA_TRUE) return;
+
         ma_sound_set_stop_time_in_pcm_frames(&voice.sound, ~static_cast<ma_uint64>(0));
         // Not from 0: a resume inside the pause's ramp, or before the mixer ran, would jump to it.
         ma_sound_set_fade_in_milliseconds(&voice.sound, FADER_NOW, 1.0f, STOP_FADE_MS);
-        voice.hold = Voice::Hold::None;
         ma_sound_start(&voice.sound);
     }
 

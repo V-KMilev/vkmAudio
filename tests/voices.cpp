@@ -131,6 +131,31 @@ TEST("a resume ramps up from wherever the pause's ramp got to, without a jump") 
     }
 }
 
+TEST("a one-shot that runs out while its pause ramps down stays ended when let go") {
+    Device device;
+    openMix(device);
+    const Clip    clip = steady(0.1f);
+    const VoiceId own  = device.play(clip, flat());
+    const VoiceId bulk = device.play(clip, flat());
+    REQUIRE(own != 0u);
+    REQUIRE(bulk != 0u);
+    // A hundred frames from the end, inside the pause's 240.
+    render(device, clip.frameCount() - 100);
+    device.pauseVoice(own);
+    device.pauseAllVoices();
+    render(device, 1024);
+
+    device.resumeVoice(own);
+    device.resumeAllVoices();
+    CHECK(!device.isVoicePaused(own));
+    CHECK(!device.isVoicePaused(bulk));
+    CHECK(render(device, 2048).peak() == 0.0f);
+    CHECK(!device.isVoiceActive(own));
+    CHECK(!device.isVoiceActive(bulk));
+    device.reapFinishedVoices();
+    CHECK(device.voiceCount() == 0u);
+}
+
 TEST("pausing all holds only what sounds, and resuming all leaves a voice paused on purpose held") {
     Device device;
     openMix(device);

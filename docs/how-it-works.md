@@ -19,9 +19,11 @@ it, and the mixer thread is miniaudio's.
 
 ### The known races are miniaudio's
 
-ThreadSanitizer reports races inside miniaudio on single aligned scalars (a voice's volume written
-as the mixer reads it, a low-pass retuned as it runs). They are left alone: fixing them means forking
-miniaudio, and no state of the library's own races.
+ThreadSanitizer reports races inside miniaudio on what it writes unguarded as the mixer reads it: a
+voice's volume, a low-pass's coefficients and shape as it is retuned, the listener's world-up
+(`setListener`) and its enabled flag (`setListenerActive`), and a voice's cursor as `voiceCursor`
+reads it. One block of the mix may read one of them half-written as it changes. They are left alone:
+fixing them means forking miniaudio, and no state of the library's own races.
 
 ### The voice budget
 
@@ -45,8 +47,9 @@ on.
 
 ### No device is a normal state
 
-With no audio, `open` answers false, every other call does nothing, and the caller runs **silent,
-not broken**: every sound reads as finished at once. To reach that path on a machine with sound:
+With no audio, `open` answers false, every other call does nothing but keep the master volume for
+the next open, and the caller runs **silent, not broken**: every sound reads as finished at once. To
+reach that path on a machine with sound:
 
 ```bash
 PULSE_SERVER=/nonexistent ALSA_CONFIG_PATH=/nonexistent <program>

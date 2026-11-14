@@ -18,7 +18,7 @@ std::string findClipFault(const Clip& clip) {
         return "a sample rate of " + std::to_string(clip.sampleRate) + " is outside the 1.."
             + std::to_string(Clip::MAX_SAMPLE_RATE) + " a sound may have";
     }
-    // The mixer reads whole frames, so a partial last frame runs it off the end of the buffer.
+    // A part of a frame: samples cut short, or not written for this many channels.
     if (clip.sampleCount() % clip.channels != 0) {
         return std::to_string(clip.sampleCount()) + " samples do not divide into "
             + std::to_string(clip.channels) + " channels";

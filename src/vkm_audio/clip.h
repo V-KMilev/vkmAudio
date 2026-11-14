@@ -57,17 +57,22 @@ struct Clip {
                                                  ///< material.
 
     static constexpr uint32_t MAX_SAMPLE_RATE = 384000;  ///< Sample rate past which a clip is refused as
-                                                         ///< corrupt rather than read: twice the highest
-                                                         ///< consumer hardware rate. The rate gives the
+                                                         ///< corrupt rather than read, well above any
+                                                         ///< rate a sound is recorded at. The rate gives the
                                                          ///< clip's duration, so a wild one makes the length
                                                          ///< wrong everywhere it is read.
 
     uint32_t sampleRate = 0;  ///< Frames per second, as authored; the mixer resamples if it differs.
-    uint32_t channels   = 0;  ///< 1 = mono, 2 = stereo, up to MAX_CHANNELS; only a mono clip positions.
+    uint32_t channels   = 0;  ///< 1 = mono, 2 = stereo, up to MAX_CHANNELS; a positioned voice wants a
+                              ///< mono clip, as a stereo one only leans.
 
     ClipSamples samples;  ///< Interleaved PCM, shared with the voices playing it.
 
-    /// Total samples across all channels.
+    /**
+     * @brief Total samples across all channels.
+     *
+     * @return The count; 0 with no samples.
+     */
     size_t sampleCount() const { return samples ? samples->size() : 0; }
 
     /**
@@ -77,7 +82,11 @@ struct Clip {
      */
     uint64_t frameCount() const { return channels == 0 ? 0 : sampleCount() / channels; }
 
-    /// Length in seconds, or 0 when the clip carries no rate.
+    /**
+     * @brief Length in seconds.
+     *
+     * @return frameCount() over sampleRate; 0 when the clip carries no rate.
+     */
     float duration() const {
         return sampleRate == 0 ? 0.0f : static_cast<float>(frameCount()) / static_cast<float>(sampleRate);
     }

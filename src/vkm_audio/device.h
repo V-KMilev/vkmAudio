@@ -16,13 +16,14 @@ namespace Vkm::Audio {
  */
 using VoiceId = uint32_t;
 
-inline constexpr size_t MAX_ACTIVE_VOICES = 128;  ///< The most voices the mixer will hold at once. Well above
-                                                  ///< most scenes' need. At it, play() makes room or refuses
-                                                  ///< (Device::play).
+inline constexpr size_t MAX_ACTIVE_VOICES = 128;  ///< The most live voices at once, playing or paused.
+                                                  ///< Well above most scenes' need. At it, play() makes room
+                                                  ///< or refuses (Device::play).
 
-inline constexpr size_t MAX_HELD_VOICES = 2 * MAX_ACTIVE_VOICES;
-    ///< The most voices the mixer's map holds, ramping out ones too: they leave only as the mixer runs, which
-    ///< a lost device does not.
+inline constexpr size_t MAX_HELD_VOICES = 2 * MAX_ACTIVE_VOICES;  ///< The most voices the mixer keeps,
+                                                                   ///< ramping out ones too, which leave
+                                                                   ///< only as the mixer runs, and a lost
+                                                                   ///< device does not run it.
 
 /**
  * @brief How a positioned voice fades between its near and far distances.
@@ -43,12 +44,12 @@ struct VoiceParams {
                                     ///< gain would take the whole mix non-finite.
     float     pitch       = 1.0f;   ///< Playback speed, 2 an octave up: held to 0.01..16, and a NaN
                                     ///< heard as 0.01.
-    bool      loop        = false;
-    bool      spatial     = true;
-    glm::vec3 position    = {0.0f, 0.0f, 0.0f};
-    float     minDistance = 1.0f;
-    float     maxDistance = 50.0f;
-    Rolloff   rolloff     = Rolloff::Linear;
+    bool      loop        = false;  ///< Plays again from the start at its end, until stopped.
+    bool      spatial     = true;   ///< Positioned in the world; false is heard flat, as it is.
+    glm::vec3 position    = {0.0f, 0.0f, 0.0f};  ///< Where in the world, in meters, when spatial.
+    float     minDistance = 1.0f;   ///< Meters within which the voice is heard at full gain.
+    float     maxDistance = 50.0f;  ///< Meters at which the fade ends; at or below minDistance, no fade.
+    Rolloff   rolloff     = Rolloff::Linear;  ///< How the gain falls between the two.
     int       priority    = 0;      ///< Rank when the mixer is full; see Device::play.
     float     occlusion   = 0.0f;   ///< How much of the sound the world stops on its way to the ear, 0 to
                                     ///< 1: quieter and duller as it rises (Acoustics::occludedGain,
@@ -66,7 +67,8 @@ struct VoiceParams {
     /**
      * @brief The near distance as the mixer takes it.
      *
-     * It is multiplied into the per-sample gain, so bad values are read as zero.
+     * The linear rolloff subtracts it from the distance and divides by what is left, so a non-finite
+     * one would take the gain to NaN; it, and a negative one, is read as zero.
      *
      * @return minDistance, or 0 where it is negative or not finite.
      */
@@ -119,8 +121,7 @@ inline float inverseRolloffGain(const VoiceParams& params, float distance) {
 }
 
 /**
- * @brief The playback device and the mixer: the mixer's surface onto miniaudio (decodeFile is
- *        the decoder's).
+ * @brief The playback device and the mixer, over miniaudio.
  *
  * A voice shares ownership of its clip's samples, so a clip its owner frees plays on to its end.
  * Main-thread only, render() included. See docs/how-it-works.md, "Which thread may call it" and
@@ -168,7 +169,8 @@ class Device {
         /**
          * @brief Pull mixed frames from an offline mixer into @p frames.
          *
-         * Only meaningful after openOffline().
+         * Only after openOffline(): a mixer a device pulls is refused (an assert where asserts run),
+         * as its own thread reads the same graph.
          *
          * @param frames Destination for interleaved 32-bit float samples; must
          *        hold frameCount * the channel count openOffline() was given.
@@ -197,7 +199,7 @@ class Device {
          * @brief Push a voice's parameters to the mixer; an unknown or finished voice is ignored.
          *
          * @param voice  Voice to update.
-         * @param params Gain, pitch, looping and position from now on.
+         * @param params Everything a voice is played with from now on; its clip stays.
          */
         void updateVoice(VoiceId voice, const VoiceParams& params);
 

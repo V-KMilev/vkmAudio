@@ -65,7 +65,8 @@ class ReverbTank {
          * Every channel of the input feeds every channel's tank, so a sound heard in one ear rings
          * in both.
          *
-         * @param in     Interleaved input, the channel count prepare() was given; null is silence.
+         * @param in     Interleaved input, the channel count prepare() was given; null is silence, and so
+         *               is a frame holding a sample that is not finite.
          * @param out    Interleaved output; may not alias @p in.
          * @param frames Frames to process.
          */

@@ -28,7 +28,7 @@ foreach(_vkm_audio_required glm vkm_log)
     endif()
 endforeach()
 
-# Debug features follow flags, each off unless the consumer turns it on.
+# Its asserts follow a flag, off unless the consumer turns it on.
 option(VKM_AUDIO_ASSERTS "Keep the library's VKM_ASSERTs on whatever the build type" OFF)
 
 # miniaudio, which is this library's alone.

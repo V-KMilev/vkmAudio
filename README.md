@@ -13,8 +13,8 @@ keeps nothing but the voices it plays.
 - A positioned voice wants a mono clip: each channel goes to the output channel it was written for,
   so a stereo clip only leans.
 - `Device` is the main thread's alone, `render` included; the mixer's thread is miniaudio's.
-- No device is a normal state: `open` answers false, every other call does nothing, and the caller
-  runs silent.
+- No device is a normal state: `open` answers false, every other call does nothing but keep the
+  master volume for the next open, and the caller runs silent.
 
 ## A mix
 

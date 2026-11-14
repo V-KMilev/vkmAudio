@@ -816,7 +816,15 @@ void Device::reopenLostDevice() {
 
 void Device::stopAllVoices() {
     if (!m_backend) return;
-    for (const auto& entry : m_backend->voices) stopVoice(entry.first);
+    ma_node* output = ma_engine_get_endpoint(&m_backend->engine);
+    for (const auto& entry : m_backend->voices) {
+        stopVoice(entry.first);
+        // The ramp goes straight out: through the room, it would ring there again once the tail is gone.
+        Backend::Voice& voice = *entry.second;
+        if (voice.ringing && ma_node_attach_output_bus(&voice.lowpass, 0, output, 0) == MA_SUCCESS) {
+            voice.ringing = false;
+        }
+    }
     if (m_backend->reverb) m_backend->reverb->tank.silence();
 }
 

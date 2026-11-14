@@ -51,8 +51,13 @@ class ReverbTank {
          */
         void setWet(float wet);
 
-        /// Let the tail go: the next block fades it out and the lines are empty after it.
-        void silence() { m_silencing.store(true, std::memory_order_relaxed); }
+        /**
+         * @brief Let the tail go: the next block fades it out and the lines are empty after it.
+         *
+         * Input after that block rings as any input does, so a caller first takes off what feeds the
+         * tank: the mixer sees that change from the block after on.
+         */
+        void silence() { m_silencing.store(true, std::memory_order_release); }
 
         /**
          * @brief Reverberate @p frames of @p in into @p out: the tail alone, scaled by the level.

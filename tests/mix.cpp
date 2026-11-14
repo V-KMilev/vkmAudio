@@ -297,6 +297,27 @@ TEST("a voice ringing in the room rings on after it ends, at the level set, and 
     CHECK(fallen < 75.0f);
 }
 
+TEST("stopAllVoices silences the room under a voice still sounding, however short the mixer's blocks") {
+    // Shorter than a stop's ramp, and longer.
+    for (const size_t block : {64u, 128u, 1024u}) {
+        Device device;
+        openMix(device);
+        device.setRoomReverb(1.0f, 0.5f);
+        VoiceParams params = flat();
+        params.reverb = true;
+        REQUIRE(device.play(tone(400.0f, 1.0f), params) != 0u);
+        for (size_t frame = 0; frame < 4800; frame += block) render(device, block);
+        device.stopAllVoices();
+        // Past the ramp, with room to spare.
+        for (size_t frame = 0; frame < 1024; frame += block) render(device, block);
+        float after = 0.0f;
+        for (size_t frame = 0; frame < 4800; frame += block) {
+            after = std::max(after, render(device, block).peak());
+        }
+        CHECK(after == 0.0f);
+    }
+}
+
 TEST("a playing voice taken out of the room stops feeding its reverb, so the tail it left dies away") {
     const auto tailAfterStop = [](bool ringing) {
         Device device;

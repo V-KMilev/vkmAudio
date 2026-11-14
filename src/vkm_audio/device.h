@@ -183,7 +183,8 @@ class Device {
          * below this one's, or of its own and quieter than it as heard; the quietest of those,
          * then the oldest. A voice held by a pause is kept.
          *
-         * @param clip Decoded clip to play; an empty one yields no voice.
+         * @param clip Decoded clip to play; an empty one yields no voice, and one findClipFault()
+         *        refuses yields none and logs why.
          * @param params Initial gain, pitch, looping, position and priority.
          * @return The new voice, or 0 if the device is closed, MAX_HELD_VOICES are held, a
          *         one-shot is asked for while the device is lost, the sound could not be created,

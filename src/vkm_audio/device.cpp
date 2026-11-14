@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 
@@ -608,7 +609,11 @@ uint64_t Device::render(float* frames, uint64_t frameCount) {
 }
 
 VoiceId Device::play(const Clip& clip, const VoiceParams& params) {
-    if (!m_backend || clip.sampleCount() == 0 || clip.channels == 0) return 0;
+    if (!m_backend || clip.sampleCount() == 0) return 0;
+    if (const std::string fault = findClipFault(clip); !fault.empty()) {
+        LOG_WARNING("A sound cannot be played - %s", fault.c_str());
+        return 0;
+    }
 
     if (m_backend->voices.size() >= MAX_HELD_VOICES) {
         if (!m_heldCapSpent) {

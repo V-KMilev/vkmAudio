@@ -79,6 +79,30 @@ TEST("play gives ids never used before, and nothing for an empty clip, a clip wi
     CHECK(device.play(clip, flat()) == 0u);
 }
 
+TEST("play gives no voice for a clip findClipFault refuses, and says why each time") {
+    Device device;
+    openMix(device);
+    Clip noChannels = steady(0.1f);
+    noChannels.channels = 0;
+    const std::vector<Clip> faulty = {
+        clipOf(std::vector<int16_t>(9 * 480, 1000), 9),
+        clipOf(std::vector<int16_t>(254 * 48, 1000), 254),
+        noChannels,
+        clipOf(std::vector<int16_t>(480, 1000), 1, 0),
+        clipOf(std::vector<int16_t>(480, 1000), 1, Clip::MAX_SAMPLE_RATE + 1),
+        clipOf(std::vector<int16_t>(481, 1000), 2),
+    };
+    for (const Clip& clip : faulty) {
+        const std::string fault = Vkm::Audio::findClipFault(clip);
+        REQUIRE(!fault.empty());
+        CHECK(device.play(clip, flat()) == 0u);
+        CHECK(device.play(clip, flat()) == 0u);
+        CHECK(countOf(Vkm::Test::logText(), "cannot be played - " + fault) == 2);
+    }
+    CHECK(device.voiceCount() == 0u);
+    CHECK(device.play(steady(0.1f), flat()) != 0u);
+}
+
 TEST("a paused voice holds its cursor, silently, and resumes from it") {
     Device device;
     openMix(device);

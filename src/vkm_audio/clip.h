@@ -86,8 +86,8 @@ struct Clip {
 /**
  * @brief Why @p clip cannot be played, or an empty string when it can.
  *
- * What the mixer relies on unchecked: whole frames, at a rate and in a channel count it
- * takes (MAX_SAMPLE_RATE, MAX_CHANNELS).
+ * Device::play() refuses a clip with one: samples not in whole frames, or a rate or channel
+ * count outside what a sound may have (MAX_SAMPLE_RATE, MAX_CHANNELS).
  *
  * @param clip Sound to judge.
  * @return The first fault found, worded to follow "cannot be played - ".

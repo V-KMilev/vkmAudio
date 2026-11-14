@@ -14,6 +14,7 @@
 
 #include "miniaudio.h"
 
+#include "vkm_log/assert.h"
 #include "vkm_log/logger.h"
 
 #include "vkm_audio/acoustics.h"
@@ -514,7 +515,12 @@ Device::Device()  = default;
 Device::~Device() { close(); }
 
 bool Device::open() {
-    if (m_backend) return true;
+    if (m_backend) {
+        // Open already: a device's mixer is the one asked for; one with no device is not.
+        VKM_ASSERT(m_backend->device != nullptr, "open() on a mixer opened with no device");
+        if (!m_backend->device) LOG_WARNING("A mixer with no device is open - close() it before open()");
+        return m_backend->device != nullptr;
+    }
 
     auto backend = std::make_unique<Backend>();
     backend->context = std::make_unique<ma_context>();
@@ -555,7 +561,18 @@ bool Device::open() {
 }
 
 bool Device::openOffline(uint32_t sampleRate, uint32_t channels) {
-    if (m_backend) return true;
+    if (m_backend) {
+        // Open already: the same offline mixer is the one asked for; any other would mix into a
+        // buffer of another shape.
+        const bool shape = ma_engine_get_sample_rate(&m_backend->engine) == sampleRate
+            && ma_engine_get_channels(&m_backend->engine) == channels;
+        const bool same = !m_backend->device && shape;
+        VKM_ASSERT(same, "openOffline(%u, %u) on another mixer already open", sampleRate, channels);
+        if (!same) {
+            LOG_WARNING("Another mixer is open: close() it before openOffline(%u, %u)", sampleRate, channels);
+        }
+        return same;
+    }
 
     auto backend = std::make_unique<Backend>();
 
@@ -599,6 +616,12 @@ void Device::close() {
 
 uint64_t Device::render(float* frames, uint64_t frameCount) {
     if (!m_backend || frames == nullptr) return 0;
+    // A device's own thread pulls its mixer: a second reader would race it.
+    VKM_ASSERT(m_backend->device == nullptr, "render() on a mixer a device pulls");
+    if (m_backend->device) {
+        LOG_ERROR("render() on a mixer a device pulls - only openOffline()'s is rendered");
+        return 0;
+    }
 
     ma_uint64 read = 0;
     if (ma_engine_read_pcm_frames(&m_backend->engine, frames, frameCount, &read) != MA_SUCCESS) {

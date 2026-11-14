@@ -2,12 +2,18 @@
 
 #include <cmath>
 #include <limits>
+#include <string>
 #include <vector>
+
+#if !defined(_WIN32)
+    #include <unistd.h>
+#endif
 
 #include "vkm_audio/acoustics.h"
 #include "vkm_audio/device.h"
 
 #include "harness/check.h"
+#include "harness/scratch.h"
 #include "mixing.h"
 
 using namespace Mixing;
@@ -355,4 +361,26 @@ TEST("a playing voice taken out of the room stops feeding its reverb, so the tai
     };
     CHECK(tailAfterStop(true) > 1e-3f);
     CHECK(tailAfterStop(false) < 1e-5f);
+}
+
+TEST("a second open of another mixer is refused and said, or stops the program where asserts run") {
+#if defined(_WIN32)
+    Vkm::Test::skip("a child process here needs fork");
+#else
+    const auto ended = Vkm::Test::inChild([] {
+        Device device;
+        REQUIRE(device.openOffline(RATE, 6));
+        // The same mixer again is the one open; another shape, or a device, is not.
+        if (!device.openOffline(RATE, 6)) _exit(1);
+        if (device.openOffline(RATE, 2)) _exit(1);
+        if (device.open()) _exit(1);
+    });
+    if (VKM_TEST_LIBRARY_ASSERTS) {
+        CHECK(ended == Vkm::Test::Ended::Stopped);
+    } else {
+        CHECK(ended == Vkm::Test::Ended::Returned);
+        CHECK(Vkm::Test::logText().find("Another mixer is open") != std::string::npos);
+        CHECK(Vkm::Test::logText().find("A mixer with no device is open") != std::string::npos);
+    }
+#endif
 }

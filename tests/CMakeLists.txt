@@ -9,7 +9,12 @@ file(GLOB VKM_AUDIO_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*
 add_executable(vkm_audio_tests ${CMAKE_CURRENT_SOURCE_DIR}/harness/main.cpp ${VKM_AUDIO_TEST_SOURCES})
 target_link_libraries(vkm_audio_tests PRIVATE ${PROJECT_NAME})
 target_include_directories(vkm_audio_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(vkm_audio_tests PRIVATE VKM_TEST_SUITE="vkm_audio" VKM_TEST_LOG)
+# The library's asserts flag, which check.h's VKM_TEST_LIBRARY_ASSERTS reads beside the file's NDEBUG.
+target_compile_definitions(vkm_audio_tests PRIVATE
+    VKM_TEST_SUITE="vkm_audio"
+    VKM_TEST_LOG
+    VKM_TEST_ASSERTS_FLAG=$<BOOL:${VKM_AUDIO_ASSERTS}>
+)
 target_compile_options(vkm_audio_tests PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang>:${_vkm_audio_warnings}>
     $<$<CXX_COMPILER_ID:Clang>:-Werror=documentation>

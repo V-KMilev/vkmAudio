@@ -122,10 +122,9 @@ inline float inverseRolloffGain(const VoiceParams& params, float distance) {
  * @brief The playback device and the mixer: the mixer's surface onto miniaudio (decodeFile is
  *        the decoder's).
  *
- * A voice shares ownership of its clip's samples, so a sound outlives its graph. Main-thread only, render()
- * included, and unguarded; with no device open() returns false and every other call is a
- * no-op. See docs/how-it-works.md, "Which thread may call it" and "The known races are
- * miniaudio's".
+ * A voice shares ownership of its clip's samples, so a clip its owner frees plays on to its end.
+ * Main-thread only, render() included. See docs/how-it-works.md, "Which thread may call it" and
+ * "The known races are miniaudio's".
  */
 class Device {
     public:
@@ -144,7 +143,8 @@ class Device {
          *
          * Excludes the null backend, which would succeed with no audio hardware.
          *
-         * @return True when a device opened; false: no device, and every other call does nothing.
+         * @return True when a device opened, or one is open; false: no device, and every other call
+         *         does nothing, or a mixer with no device is open (an assert where asserts run).
          */
         bool open();
 
@@ -155,7 +155,8 @@ class Device {
          *
          * @param sampleRate Mix rate; the caller's buffer is at this rate.
          * @param channels Output channel count (2 to hear panning at all).
-         * @return True when the mixer initialized.
+         * @return True when the mixer initialized, or one of this rate and channel count is open;
+         *         false when another mixer is open (an assert where asserts run).
          */
         bool openOffline(uint32_t sampleRate, uint32_t channels);
 

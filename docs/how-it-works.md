@@ -85,4 +85,6 @@ mean free path sets the decay (`reverbFor`). Open ground has none.
 
 **One tank.** `ReverbTank` is Schroeder's design as Freeverb tunes it: damped combs in parallel, then
 all-passes in series, each output channel's lines a little longer than the last so the tail is wide.
-Every voice that rings feeds the one tank, tuned to the room the ear is in.
+Every voice that rings feeds the one tank, tuned to the room the ear is in. A tail is flushed to zero
+far below hearing: left alone it settles in subnormal floats, which cost the mixer's thread many
+times as much for the rest of the session.

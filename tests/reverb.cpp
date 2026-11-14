@@ -89,6 +89,25 @@ TEST("a level of zero, below it or not a number gives no tail, and a decay past 
     CHECK(tailOf(0.1f, 1.0f) != tailOf(0.2f, 1.0f));
 }
 
+TEST("a tail falls to silence and never through subnormal floats, which cost many times a normal one") {
+    ReverbTank tank;
+    tank.prepare(RATE, 2);
+    tank.setDecay(0.5f);
+    tank.setWet(1.0f);
+    const auto tail = tailOfClick(tank, 2, 10.0f);
+
+    size_t subnormal  = 0;
+    float  lastSecond = 0.0f;
+    for (const std::vector<float>& channel : tail) {
+        for (size_t i = 0; i < channel.size(); ++i) {
+            if (std::fpclassify(channel[i]) == FP_SUBNORMAL) ++subnormal;
+            if (i + RATE >= channel.size()) lastSecond = std::max(lastSecond, std::abs(channel[i]));
+        }
+    }
+    CHECK(subnormal == 0u);
+    CHECK(lastSecond == 0.0f);
+}
+
 TEST("silence empties the tank within one block") {
     ReverbTank tank;
     tank.prepare(RATE, 2);

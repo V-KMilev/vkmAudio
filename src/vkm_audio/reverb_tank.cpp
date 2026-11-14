@@ -26,10 +26,20 @@ constexpr float INPUT_GAIN = 0.12f;  ///< What the input is scaled by on its way
 constexpr float SHORTEST = 0.1f;  ///< Decay is held between these, in seconds.
 constexpr float LONGEST  = 10.0f;
 
+constexpr float INAUDIBLE = 1e-20f;  ///< Below this the tank keeps zero: far below hearing, and far enough
+                                     ///< above the subnormal floats (below about 1e-38) that no gain in it
+                                     ///< makes one.
+
 /// A line of @p samples at TUNED_RATE, as long in time at @p rate.
 uint32_t scaled(uint32_t samples, uint32_t rate) {
     const double length = std::round(static_cast<double>(samples) * static_cast<double>(rate) / TUNED_RATE);
     return std::max<uint32_t>(1, static_cast<uint32_t>(length));
+}
+
+/// @p value, or zero below INAUDIBLE: a decaying tail never reaches zero by itself, but settles in
+/// subnormal floats, which cost x86 many times a normal one for as long as the mixer runs.
+float flushed(float value) {
+    return std::abs(value) < INAUDIBLE ? 0.0f : value;
 }
 
 } // namespace
@@ -98,7 +108,7 @@ void ReverbTank::process(const float* in, float* out, uint32_t frames) {
             for (size_t i = 0; i < combs; ++i) {
                 Line& comb = m_combs[c * combs + i];
                 const float echo = comb.buffer[comb.at];
-                comb.damped          = echo * (1.0f - DAMPING) + comb.damped * DAMPING;
+                comb.damped          = flushed(echo * (1.0f - DAMPING) + comb.damped * DAMPING);
                 comb.buffer[comb.at] = mono + comb.damped * comb.feedback;
                 comb.at              = (comb.at + 1) % static_cast<uint32_t>(comb.buffer.size());
                 sum += echo;
@@ -106,7 +116,7 @@ void ReverbTank::process(const float* in, float* out, uint32_t frames) {
             for (size_t i = 0; i < alls; ++i) {
                 Line& pass = m_allpasses[c * alls + i];
                 const float echo = pass.buffer[pass.at];
-                pass.buffer[pass.at] = sum + echo * pass.feedback;
+                pass.buffer[pass.at] = flushed(sum + echo * pass.feedback);
                 pass.at              = (pass.at + 1) % static_cast<uint32_t>(pass.buffer.size());
                 sum                  = echo - sum;
             }

@@ -90,6 +90,9 @@ constexpr std::array<ma_backend, 7> PLAYBACK_BACKENDS = {
 constexpr uint32_t STOP_FADE_MS = 5;  ///< How long a stopped voice takes to reach silence: short enough to
                                       ///< read as a stop, long enough not to click.
 
+constexpr float FADER_NOW = -1.0f;  ///< A fade's start volume that miniaudio replaces with the fader's own as
+                                    ///< the mixer applies the fade.
+
 constexpr std::chrono::seconds REOPEN_INTERVAL{2};  ///< Wait between attempts to reopen a lost device:
                                                     ///< opening blocks, and a host with no output would
                                                     ///< otherwise pay it every frame.
@@ -399,14 +402,15 @@ struct Device::Backend {
     /**
      * @brief Undo pauseSound and let @p voice play on from where it was held.
      *
-     * Clears both things the ramped pause leaves silencing it: a past stop time and a
-     * fader at zero.
+     * Clears both things the ramped pause leaves silencing it: a stop time and a fader on its
+     * way to zero, which ramps back up from wherever it got to.
      *
      * @param voice Voice to let go.
      */
     static void resumeSound(Voice& voice) {
         ma_sound_set_stop_time_in_pcm_frames(&voice.sound, ~static_cast<ma_uint64>(0));
-        ma_sound_set_fade_in_milliseconds(&voice.sound, 0.0f, 1.0f, STOP_FADE_MS);
+        // Not from 0: a resume inside the pause's ramp, or before the mixer ran, would jump to it.
+        ma_sound_set_fade_in_milliseconds(&voice.sound, FADER_NOW, 1.0f, STOP_FADE_MS);
         voice.hold = Voice::Hold::None;
         ma_sound_start(&voice.sound);
     }

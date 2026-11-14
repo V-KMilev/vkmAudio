@@ -108,6 +108,29 @@ TEST("a paused voice holds its cursor, silently, and resumes from it") {
     CHECK_NEAR(device.voiceCursor(voice), held + 0.25f, 0.01f);
 }
 
+TEST("a resume ramps up from wherever the pause's ramp got to, without a jump") {
+    // Resumed before the mixer runs again, and halfway down the pause's 240 frames.
+    for (const size_t into : {size_t{0}, size_t{120}}) {
+        Device device;
+        openMix(device);
+        const VoiceId voice = device.play(steady(1.0f), looping());
+        REQUIRE(voice != 0u);
+        const float level = render(device, 2048).at(2047, 0);
+        REQUIRE(level > 0.1f);
+
+        device.pauseVoice(voice);
+        const float last = into > 0 ? render(device, into).at(into - 1, 0) : level;
+        device.resumeVoice(voice);
+        const Block after = render(device, 2048);
+        float jump = std::abs(after.at(0, 0) - last);
+        for (size_t f = 1; f < after.frames(); ++f) {
+            jump = std::max(jump, std::abs(after.at(f, 0) - after.at(f - 1, 0)));
+        }
+        CHECK(jump < level / 60.0f);
+        CHECK_NEAR(after.at(2047, 0), level, 1e-6f);
+    }
+}
+
 TEST("pausing all holds only what sounds, and resuming all leaves a voice paused on purpose held") {
     Device device;
     openMix(device);

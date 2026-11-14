@@ -77,14 +77,13 @@ const ma_node_vtable REVERB_VTABLE = {
     MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT,
 };  ///< Run while nothing feeds it, so a tail rings on after its sound stops.
 
-constexpr std::array<ma_backend, 7> PLAYBACK_BACKENDS = {
+constexpr std::array<ma_backend, 6> PLAYBACK_BACKENDS = {
     ma_backend_wasapi,
     ma_backend_dsound,
     ma_backend_winmm,
     ma_backend_pulseaudio,
     ma_backend_alsa,
     ma_backend_jack,
-    ma_backend_oss,
 };  ///< The backends of Windows and Linux, in miniaudio's priority order. Stated because ma_engine's default
     ///< list ends in the null backend, which succeeds with no hardware.
 

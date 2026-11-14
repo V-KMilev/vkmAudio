@@ -54,6 +54,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     vkm_log
 )
 
+# Public: its headers are C++17 (string_view), so whatever includes them is too.
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+
 # Private: only device.cpp and decode.cpp include miniaudio's header, and its definitions reach the
 # library's own sources alone. A consumer links the archive and nothing else of it.
 target_link_libraries(${PROJECT_NAME} PRIVATE

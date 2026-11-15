@@ -92,8 +92,8 @@ void ReverbTank::process(const float* in, float* out, uint32_t frames) {
     const float wet = m_wet.load(std::memory_order_relaxed);
     // Acquire, against silence()'s release.
     const bool silencing = m_silencing.exchange(false, std::memory_order_acquire);
-    const size_t combs = COMB_SAMPLES.size();
-    const size_t alls  = ALLPASS_SAMPLES.size();
+    const size_t combs   = COMB_SAMPLES.size();
+    const size_t alls    = ALLPASS_SAMPLES.size();
     for (uint32_t f = 0; f < frames; ++f) {
         // Let go over the block rather than cut, which would click.
         const float fade = silencing ? 1.0f - static_cast<float>(f + 1) / static_cast<float>(frames) : 1.0f;

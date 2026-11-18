@@ -8,6 +8,8 @@
 file(GLOB VKM_AUDIO_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 add_executable(vkm_audio_tests ${CMAKE_CURRENT_SOURCE_DIR}/harness/main.cpp ${VKM_AUDIO_TEST_SOURCES})
 target_link_libraries(vkm_audio_tests PRIVATE ${PROJECT_NAME})
+# Beside vkm_log, where Windows looks for the DLL a program needs.
+set_target_properties(vkm_audio_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY $<TARGET_FILE_DIR:vkm_log>)
 target_include_directories(vkm_audio_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # The library's asserts flag, which check.h's VKM_TEST_LIBRARY_ASSERTS reads beside the file's NDEBUG.
 target_compile_definitions(vkm_audio_tests PRIVATE
